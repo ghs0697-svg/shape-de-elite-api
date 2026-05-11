@@ -28,16 +28,36 @@ export async function POST(req) {
     }
 
     const payload = await req.json().catch(() => ({}));
-    console.log('greenn webhook payload:', JSON.stringify(payload).slice(0, 500));
+    console.log('greenn webhook payload:', JSON.stringify(payload));
 
-    // Extrai email + status + nome de múltiplos formatos possíveis
+    // Procura recursiva por chave "email" em qualquer profundidade do objeto
+    function findKey(obj, key) {
+      if (!obj || typeof obj !== 'object') return null;
+      for (const k of Object.keys(obj)) {
+        if (k.toLowerCase() === key.toLowerCase() && typeof obj[k] === 'string' && obj[k]) return obj[k];
+      }
+      for (const k of Object.keys(obj)) {
+        if (typeof obj[k] === 'object') {
+          const r = findKey(obj[k], key);
+          if (r) return r;
+        }
+      }
+      return null;
+    }
+
+    // Email: tenta caminhos conhecidos primeiro, depois fallback recursivo
     const email = normEmail(
       payload.email ||
       payload.customer_email ||
       payload.buyer?.email ||
       payload.customer?.email ||
+      payload.client?.email ||
       payload.data?.customer?.email ||
       payload.data?.buyer?.email ||
+      payload.sale?.client?.email ||
+      payload.sale?.customer?.email ||
+      payload.sale?.buyer?.email ||
+      findKey(payload, 'email') ||
       ''
     );
     const name =
@@ -45,14 +65,22 @@ export async function POST(req) {
       payload.customer_name ||
       payload.buyer?.name ||
       payload.customer?.name ||
+      payload.client?.name ||
       payload.data?.customer?.name ||
       payload.data?.buyer?.name ||
+      payload.sale?.client?.name ||
+      payload.sale?.customer?.name ||
+      payload.sale?.buyer?.name ||
+      findKey(payload, 'name') ||
       null;
+    // Status: prioriza currentStatus / sale.status (formato Greenn) sobre event
     const status = String(
+      payload.currentStatus ||
+      payload.sale?.status ||
+      payload.data?.status ||
       payload.status ||
       payload.event ||
       payload.type ||
-      payload.data?.status ||
       'unknown'
     ).toLowerCase();
 
