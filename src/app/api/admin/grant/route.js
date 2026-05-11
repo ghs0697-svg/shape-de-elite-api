@@ -25,6 +25,18 @@ export async function GET(req) {
 
   const kv = await getKV();
 
+  if (action === 'check') {
+    const purchase = await kv.get(`shape:purchase:${email}`);
+    const user = await kv.get(`shape:user:${email}`);
+    return NextResponse.json({
+      ok: true,
+      email,
+      purchase: purchase ? { status: purchase.status, name: purchase.name, purchasedAt: purchase.purchasedAt, cancelledAt: purchase.cancelledAt } : null,
+      user: user ? { status: user.status || 'active', name: user.name, createdAt: user.createdAt, lastLogin: user.lastLogin, hasToken: !!user.currentToken } : null,
+      hasAccess: !!purchase && (!user || user.status !== 'cancelled')
+    });
+  }
+
   if (action === 'revoke') {
     await kv.del(`shape:purchase:${email}`);
     await kv.del(`shape:user:${email}`);
