@@ -6,7 +6,10 @@ import crypto from 'node:crypto';
 // CORS — libera o app frontend
 const ALLOWED_ORIGINS = [
   'https://app.shapedeelite.com.br',
+  'http://app.shapedeelite.com.br',
   'https://shapedeelite.com.br',
+  'http://shapedeelite.com.br',
+  'https://ghs0697-svg.github.io',
   'http://localhost:3000',
   'http://localhost:5500',
   'http://127.0.0.1:5500',
