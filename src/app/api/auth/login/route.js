@@ -1,5 +1,5 @@
 import {
-  preflight, jsonRes, getKV, createSession, verifyPassword, normEmail
+  preflight, jsonRes, getKV, createSession, verifyPassword, normEmail, rotateUserToken
 } from '@/lib/auth';
 
 export const runtime = 'nodejs';
@@ -22,15 +22,19 @@ export async function POST(req) {
       return jsonRes(req, { error: 'E-mail ou senha incorretos.' }, { status: 401 });
     }
 
+    if (user.status === 'cancelled') {
+      return jsonRes(req, { error: 'Conta cancelada (reembolso/cancelamento). Fala no suporte.' }, { status: 403 });
+    }
+
     const ok = await verifyPassword(password, user.passwordHash);
     if (!ok) {
       return jsonRes(req, { error: 'E-mail ou senha incorretos.' }, { status: 401 });
     }
 
-    user.lastLogin = Date.now();
-    await kv.set(`shape:user:${email}`, user);
-
+    // Single session: gera novo token e mata o anterior
     const token = await createSession(email);
+    await rotateUserToken(email, token);
+
     return jsonRes(req, { email, token, name: user.name || null });
   } catch (err) {
     console.error('login error:', err);

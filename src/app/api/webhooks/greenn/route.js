@@ -82,10 +82,26 @@ export async function POST(req) {
     }
 
     if (revokeStatuses.some(s => status.includes(s))) {
-      await kv.del(`shape:purchase:${email}`);
-      await kv.del(`shape:user:${email}`);
-      console.log(`🚫 shape:purchase + user:${email} REVOGADOS`);
-      return NextResponse.json({ ok: true, action: 'revoked', email });
+      // Marca purchase como cancelada
+      const existingPurchase = await kv.get(`shape:purchase:${email}`);
+      if (existingPurchase) {
+        existingPurchase.status = status;
+        existingPurchase.cancelledAt = Date.now();
+        await kv.set(`shape:purchase:${email}`, existingPurchase);
+      }
+      // Marca user como cancelled + revoga sessão (mantém pra histórico/legal)
+      const existingUser = await kv.get(`shape:user:${email}`);
+      if (existingUser) {
+        existingUser.status = 'cancelled';
+        existingUser.cancelledAt = Date.now();
+        if (existingUser.currentToken) {
+          await kv.del(`shape:session:${existingUser.currentToken}`).catch(() => {});
+          existingUser.currentToken = null;
+        }
+        await kv.set(`shape:user:${email}`, existingUser);
+      }
+      console.log(`🚫 shape:user:${email} CANCELLED (status=${status})`);
+      return NextResponse.json({ ok: true, action: 'cancelled', email });
     }
 
     console.log(`⚠ status desconhecido: ${status}`);

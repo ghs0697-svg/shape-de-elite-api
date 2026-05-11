@@ -87,9 +87,84 @@ export function normEmail(e) {
 }
 
 // Auth gate — usa header Authorization: Bearer <token>
+// Verifica:
+//  1. token bate com session na KV
+//  2. token === user.currentToken (single session)
+//  3. user.status !== 'cancelled'
+// Retorna { email, token, user } se OK; { error, status } se falhou.
 export async function requireAuth(req) {
   const auth = req.headers.get('authorization') || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  if (!token) return { error: 'Sessão inválida', status: 401 };
+
   const email = await emailFromToken(token);
-  return { email, token };
+  if (!email) return { error: 'Sessão expirada', status: 401 };
+
+  const kv = await getKV();
+  const user = await kv.get(`shape:user:${email}`);
+  if (!user) return { error: 'Conta não encontrada', status: 401 };
+
+  // Single session: o token usado tem que ser o atual
+  if (user.currentToken && user.currentToken !== token) {
+    return { error: 'Sessão expirada (login em outro dispositivo)', status: 401 };
+  }
+
+  // Status check
+  if (user.status === 'cancelled') {
+    return { error: 'Conta cancelada (reembolso/cancelamento). Fala no suporte.', status: 403 };
+  }
+
+  return { email, token, user };
+}
+
+// Substitui o currentToken do user — invalida sessão anterior
+export async function rotateUserToken(email, newToken) {
+  const kv = await getKV();
+  const user = (await kv.get(`shape:user:${email}`)) || {};
+  // Apaga sessão antiga (best-effort)
+  if (user.currentToken && user.currentToken !== newToken) {
+    await kv.del(`shape:session:${user.currentToken}`).catch(() => {});
+  }
+  user.currentToken = newToken;
+  user.lastLogin = Date.now();
+  await kv.set(`shape:user:${email}`, user);
+}
+
+// ─── Protocol helpers ───
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+export const PHASE_LOCK_DAYS = 120;
+const DIET_ORDER = ['1.3K','1.5K','1.8K','2K','2.2K','2.5K','2.7K','3K','3.2K','3.5K'];
+const DIET_KCAL  = { '1.3K':1300, '1.5K':1500, '1.8K':1800, '2K':2000, '2.2K':2200, '2.5K':2500, '2.7K':2700, '3K':3000, '3.2K':3200, '3.5K':3500 };
+
+export async function getProtocol(email) {
+  const kv = await getKV();
+  return await kv.get(`shape:protocol:${email}`);
+}
+
+export async function setProtocol(email, protocol) {
+  const kv = await getKV();
+  protocol.updatedAt = new Date().toISOString();
+  await kv.set(`shape:protocol:${email}`, protocol);
+  return protocol;
+}
+
+export function adjustDietForPhase(currentDietName, goal, phaseStep) {
+  const cur = String(currentDietName || '').replace(/^DIETA\s+/, '');
+  const idx = DIET_ORDER.indexOf(cur);
+  if (idx < 0) return currentDietName;
+  let delta = 0;
+  if (goal === 'Emagrecer') delta = -phaseStep;
+  else if (goal === 'Ganhar massa') delta = +phaseStep;
+  const newIdx = Math.max(0, Math.min(DIET_ORDER.length - 1, idx + delta));
+  return 'DIETA ' + DIET_ORDER[newIdx];
+}
+
+export function dietKcal(dietName) {
+  const cur = String(dietName || '').replace(/^DIETA\s+/, '');
+  return DIET_KCAL[cur] || 0;
+}
+
+export function daysSince(isoDate) {
+  if (!isoDate) return 0;
+  return Math.floor((Date.now() - new Date(isoDate).getTime()) / MS_PER_DAY);
 }

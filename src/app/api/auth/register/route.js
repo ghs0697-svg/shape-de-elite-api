@@ -1,5 +1,5 @@
 import {
-  preflight, jsonRes, getKV, createSession, hashPassword, normEmail
+  preflight, jsonRes, getKV, createSession, hashPassword, normEmail, rotateUserToken
 } from '@/lib/auth';
 
 export const runtime = 'nodejs';
@@ -46,12 +46,14 @@ export async function POST(req) {
       email,
       passwordHash,
       name: purchase?.name || null,
+      status: 'active',
       createdAt: Date.now(),
       lastLogin: Date.now(),
     };
     await kv.set(`shape:user:${email}`, user);
 
     const token = await createSession(email);
+    await rotateUserToken(email, token);
     return jsonRes(req, { email, token, name: user.name });
   } catch (err) {
     console.error('register error:', err);
