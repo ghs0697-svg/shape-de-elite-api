@@ -26,6 +26,18 @@ export async function sendWhatsApp(phone, message) {
   const headers = { 'Content-Type': 'application/json' };
   if (clientToken) headers['Client-Token'] = clientToken;
 
+  // DIAGNÓSTICO: confirma que env vars chegaram no runtime
+  console.log('Z-API config:', {
+    hasInstance: !!instance,
+    instanceLen: instance?.length,
+    hasToken: !!token,
+    tokenLen: token?.length,
+    hasClientToken: !!clientToken,
+    clientTokenLen: clientToken?.length,
+    clientTokenPrefix: clientToken ? clientToken.slice(0, 4) + '...' : 'NONE',
+    phoneToSend: cleanPhone,
+  });
+
   try {
     const res = await fetch(url, {
       method: 'POST',
