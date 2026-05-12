@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getKV, normEmail } from '@/lib/auth';
+import { sendWhatsApp, buildWelcomeMessage } from '@/lib/zapi';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -106,7 +107,25 @@ export async function POST(req) {
       };
       await kv.set(`shape:purchase:${email}`, purchase);
       console.log(`✅ shape:purchase:${email} CRIADO`);
-      return NextResponse.json({ ok: true, action: 'granted', email });
+
+      // Dispara WhatsApp de boas-vindas (best-effort — não bloqueia a resposta)
+      const phone =
+        findKey(payload, 'phone') ||
+        findKey(payload, 'cellphone') ||
+        findKey(payload, 'whatsapp') ||
+        findKey(payload, 'mobile') ||
+        findKey(payload, 'celular') ||
+        findKey(payload, 'telefone') ||
+        '';
+      if (phone) {
+        const welcome = buildWelcomeMessage({ name, email });
+        const wppResult = await sendWhatsApp(phone, welcome);
+        console.log('WhatsApp boas-vindas:', wppResult.ok ? 'enviado' : 'falhou', wppResult);
+      } else {
+        console.warn(`Sem phone no payload pra ${email} — WhatsApp não enviado`);
+      }
+
+      return NextResponse.json({ ok: true, action: 'granted', email, phone: phone ? '***' : null });
     }
 
     if (revokeStatuses.some(s => status.includes(s))) {
