@@ -43,6 +43,21 @@ export async function GET(req) {
     return NextResponse.json({ ok: true, action: 'revoked', email });
   }
 
+  // Reseta só a senha: apaga shape:user (cadastro+senha+sessão), MANTÉM
+  // shape:purchase (autorização) e shape:protocol (dados da calculadora).
+  // Aluno volta no "Primeiro acesso" e cria senha nova.
+  if (action === 'resetpwd') {
+    const user = await kv.get(`shape:user:${email}`);
+    if (user?.currentToken) {
+      await kv.del(`shape:session:${user.currentToken}`).catch(() => {});
+    }
+    await kv.del(`shape:user:${email}`);
+    return NextResponse.json({
+      ok: true, action: 'resetpwd', email,
+      msg: 'Cadastro de senha apagado. Vai no app → Primeiro acesso → cria senha nova com o mesmo email.'
+    });
+  }
+
   await kv.set(`shape:purchase:${email}`, {
     email,
     name: url.searchParams.get('name') || null,
