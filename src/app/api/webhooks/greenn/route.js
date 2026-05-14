@@ -98,10 +98,21 @@ export async function POST(req) {
     const revokeStatuses = ['refunded','reembolso','chargeback','canceled','cancelled','cancelado','expired','disputed'];
 
     if (grantStatuses.some(s => status.includes(s))) {
+      // Telefone limpo salvo no purchase — facilita reset de senha depois
+      const phone =
+        findKey(payload, 'cellphone') ||
+        findKey(payload, 'phone') ||
+        findKey(payload, 'whatsapp') ||
+        findKey(payload, 'mobile') ||
+        findKey(payload, 'celular') ||
+        findKey(payload, 'telefone') ||
+        '';
+
       const purchase = {
         email,
         name,
         status,
+        phone,
         purchasedAt: Date.now(),
         raw: payload, // guarda raw pra debug
       };
@@ -109,14 +120,6 @@ export async function POST(req) {
       console.log(`✅ shape:purchase:${email} CRIADO`);
 
       // Dispara WhatsApp de boas-vindas (best-effort — não bloqueia a resposta)
-      const phone =
-        findKey(payload, 'phone') ||
-        findKey(payload, 'cellphone') ||
-        findKey(payload, 'whatsapp') ||
-        findKey(payload, 'mobile') ||
-        findKey(payload, 'celular') ||
-        findKey(payload, 'telefone') ||
-        '';
       if (phone) {
         const welcome = buildWelcomeMessage({ name, email });
         const wppResult = await sendWhatsApp(phone, welcome);

@@ -168,3 +168,25 @@ export function daysSince(isoDate) {
   if (!isoDate) return 0;
   return Math.floor((Date.now() - new Date(isoDate).getTime()) / MS_PER_DAY);
 }
+
+// Busca recursiva por uma chave em objeto aninhado (1ª string não-vazia que casar)
+export function findKeyDeep(obj, key) {
+  if (!obj || typeof obj !== 'object') return null;
+  for (const k of Object.keys(obj)) {
+    if (k.toLowerCase() === key.toLowerCase() && typeof obj[k] === 'string' && obj[k]) return obj[k];
+  }
+  for (const k of Object.keys(obj)) {
+    if (obj[k] && typeof obj[k] === 'object') {
+      const r = findKeyDeep(obj[k], key);
+      if (r) return r;
+    }
+  }
+  return null;
+}
+
+// Extrai telefone de qualquer payload (vários nomes de campo possíveis)
+export function extractPhone(obj) {
+  return findKeyDeep(obj, 'cellphone') || findKeyDeep(obj, 'phone') ||
+         findKeyDeep(obj, 'whatsapp') || findKeyDeep(obj, 'celular') ||
+         findKeyDeep(obj, 'telefone') || findKeyDeep(obj, 'mobile') || '';
+}
