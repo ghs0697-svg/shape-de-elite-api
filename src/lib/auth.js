@@ -132,7 +132,11 @@ export async function rotateUserToken(email, newToken) {
 
 // ─── Protocol helpers ───
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
-export const PHASE_LOCK_DAYS = 120;
+// Janela inicial de 8 dias após o cadastro — sai da garantia de 7 dias do Greenn
+// e libera todas as fases (treino 2.0/3.0 + dieta 2.0/3.0) pra quem quiser acelerar.
+// O aviso "faz pelo menos 1 semana antes de pular" fica como soft warning na UI.
+export const INITIAL_GATE_DAYS = 8;
+export const PHASE_LOCK_DAYS = INITIAL_GATE_DAYS; // backwards-compat alias
 const DIET_ORDER = ['1.3K','1.5K','1.8K','2K','2.2K','2.5K','2.7K','3K','3.2K','3.5K'];
 const DIET_KCAL  = { '1.3K':1300, '1.5K':1500, '1.8K':1800, '2K':2000, '2.2K':2200, '2.5K':2500, '2.7K':2700, '3K':3000, '3.2K':3200, '3.5K':3500 };
 

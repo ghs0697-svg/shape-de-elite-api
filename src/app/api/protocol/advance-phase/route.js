@@ -1,6 +1,6 @@
 import {
   preflight, jsonRes, requireAuth, getProtocol, setProtocol,
-  PHASE_LOCK_DAYS, daysSince, adjustDietForPhase, dietKcal
+  INITIAL_GATE_DAYS, daysSince, adjustDietForPhase, dietKcal
 } from '@/lib/auth';
 
 export const runtime = 'nodejs';
@@ -47,15 +47,16 @@ export async function POST(req) {
       return jsonRes(req, { ok: false, error: `Transição inválida: tu tá na ${curPhase}, só pode avançar pra ${expected || 'nada (já no máximo)'}.` }, { status: 400 });
     }
 
-    // Validação de 120 dias (server time)
-    const startedAt = p.phaseStartedAt?.[kind];
+    // Validação: 8 dias desde o cadastro (server time)
+    // Saímos da janela de garantia/reembolso de 7 dias do Greenn e liberamos tudo.
+    const startedAt = p.createdAt || p.phaseStartedAt?.treino || p.phaseStartedAt?.dieta;
     const daysIn = daysSince(startedAt);
-    if (daysIn < PHASE_LOCK_DAYS) {
-      const daysLeft = PHASE_LOCK_DAYS - daysIn;
+    if (daysIn < INITIAL_GATE_DAYS) {
+      const daysLeft = INITIAL_GATE_DAYS - daysIn;
       return jsonRes(req, {
         ok: false,
         code: 'PHASE_LOCKED',
-        error: `Faltam ${daysLeft} dias pra desbloquear a Fase ${targetPhase} ${kind === 'treino' ? 'do treino' : 'da dieta'}. Tu tá no dia ${daysIn}/${PHASE_LOCK_DAYS}.`,
+        error: `Faltam ${daysLeft} dias pra desbloquear as fases avançadas. (Janela inicial de ${INITIAL_GATE_DAYS} dias após o cadastro.)`,
         daysLeft, daysIn
       }, { status: 403 });
     }
