@@ -48,17 +48,9 @@ export async function POST(req) {
       createdAt = existing.createdAt || nowISO;
     }
 
-    // Mapeia nível → fase inicial de treino
-    // Iniciante: começa do zero (1.0). Intermediário: pula adaptação (2.0). Avançado: vai direto na 3.0.
-    // Dieta sempre começa em 1.0 (depende da régua kcal, não da experiência).
+    // Nível guardado só pra registro/análise — TODOS começam em fase 1.0
+    // (a pergunta serve pra dar a percepção de personalização, mas treino é igual pra todo mundo)
     const level = ['iniciante', 'intermediario', 'avancado'].includes(incoming.level) ? incoming.level : 'iniciante';
-    const treinoPhaseByLevel = { iniciante: '1.0', intermediario: '2.0', avancado: '3.0' };
-    const initialTreinoPhase = treinoPhaseByLevel[level];
-
-    // Recalcula workout com a fase inicial correta
-    const sex = incoming.sex === 'Mulher' ? ' FEM' : '';
-    const days = incoming.days;
-    const workoutWithPhase = `TREINO${sex} ${days}X ${initialTreinoPhase}`;
 
     // Sanitize: pega só os campos esperados, ignora qualquer manipulação client-side de fase/lock/contadores
     const protocol = {
@@ -79,13 +71,13 @@ export async function POST(req) {
       maintenance: incoming.maintenance,
       target: incoming.target,
       diet: incoming.diet,
-      workout: workoutWithPhase,
+      workout: incoming.workout,
       protein: incoming.protein,
       carb: incoming.carb,
       fat: incoming.fat,
       dietBase: incoming.diet, // base original pra ajustes de fase futuros
       // ─── server-controlled (não confia no client) ───
-      treinoPhase: initialTreinoPhase,
+      treinoPhase: '1.0',
       dietaPhase: '1.0',
       createdAt,
       recalcCount,
