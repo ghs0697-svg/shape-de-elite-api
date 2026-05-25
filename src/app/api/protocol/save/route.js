@@ -28,13 +28,12 @@ export async function POST(req) {
     let createdAt = nowISO;
 
     if (existing) {
-      const lockedByPhase = !!existing.lockedFromRecalc
-        || (existing.treinoPhase && existing.treinoPhase !== '1.0')
-        || (existing.dietaPhase && existing.dietaPhase !== '1.0');
-      if (lockedByPhase) {
+      // Trava recalc: só se já avançou de fase manualmente OU já usou o recálculo 1x
+      // (não mais checa treinoPhase !== '1.0', pq agora intermediário/avançado já começam em 2.0/3.0)
+      if (existing.lockedFromRecalc) {
         return jsonRes(req, {
           ok: false,
-          error: 'RECÁLCULO BLOQUEADO: tu já avançou pra Fase 2.0 ou 3.0. Não dá pra recalcular o protocolo agora.',
+          error: 'RECÁLCULO BLOQUEADO: tu já avançou de fase manualmente. Não dá pra recalcular o protocolo agora.',
           code: 'LOCKED_BY_PHASE'
         }, { status: 403 });
       }
@@ -48,6 +47,18 @@ export async function POST(req) {
       recalcCount = (existing.recalcCount || 0) + 1;
       createdAt = existing.createdAt || nowISO;
     }
+
+    // Mapeia nível → fase inicial de treino
+    // Iniciante: começa do zero (1.0). Intermediário: pula adaptação (2.0). Avançado: vai direto na 3.0.
+    // Dieta sempre começa em 1.0 (depende da régua kcal, não da experiência).
+    const level = ['iniciante', 'intermediario', 'avancado'].includes(incoming.level) ? incoming.level : 'iniciante';
+    const treinoPhaseByLevel = { iniciante: '1.0', intermediario: '2.0', avancado: '3.0' };
+    const initialTreinoPhase = treinoPhaseByLevel[level];
+
+    // Recalcula workout com a fase inicial correta
+    const sex = incoming.sex === 'Mulher' ? ' FEM' : '';
+    const days = incoming.days;
+    const workoutWithPhase = `TREINO${sex} ${days}X ${initialTreinoPhase}`;
 
     // Sanitize: pega só os campos esperados, ignora qualquer manipulação client-side de fase/lock/contadores
     const protocol = {
@@ -63,17 +74,18 @@ export async function POST(req) {
       goal: incoming.goal,
       goalAdjust: incoming.goalAdjust,
       days: incoming.days,
+      level,
       tmb: incoming.tmb,
       maintenance: incoming.maintenance,
       target: incoming.target,
       diet: incoming.diet,
-      workout: incoming.workout,
+      workout: workoutWithPhase,
       protein: incoming.protein,
       carb: incoming.carb,
       fat: incoming.fat,
       dietBase: incoming.diet, // base original pra ajustes de fase futuros
       // ─── server-controlled (não confia no client) ───
-      treinoPhase: '1.0',
+      treinoPhase: initialTreinoPhase,
       dietaPhase: '1.0',
       createdAt,
       recalcCount,
