@@ -41,20 +41,46 @@ export async function POST(req) {
     const payload = await req.json().catch(() => ({}));
     console.log('hotmart webhook payload:', JSON.stringify(payload));
 
-    // Extrai email/nome/telefone do formato Hotmart (data.buyer)
+    // Busca recursiva por chave em qualquer profundidade do objeto
+    function findKey(obj, key) {
+      if (!obj || typeof obj !== 'object') return null;
+      for (const k of Object.keys(obj)) {
+        if (k.toLowerCase() === key.toLowerCase() && typeof obj[k] === 'string' && obj[k]) return obj[k];
+      }
+      for (const k of Object.keys(obj)) {
+        if (obj[k] && typeof obj[k] === 'object') {
+          const r = findKey(obj[k], key);
+          if (r) return r;
+        }
+      }
+      return null;
+    }
+
+    // Extrai email/nome/telefone do formato Hotmart (data.buyer, data.subscriber, etc)
     const buyer = payload?.data?.buyer || {};
+    const subscriber = payload?.data?.subscription?.subscriber || payload?.data?.subscriber || {};
     const purchase = payload?.data?.purchase || {};
-    const subscription = payload?.data?.subscription || {};
     const event = String(payload?.event || '').toUpperCase();
     const purchaseStatus = String(purchase?.status || '').toUpperCase();
 
-    const email = normEmail(buyer.email || '');
-    const name = buyer.name || null;
-    const phone = buyer.checkout_phone || buyer.phone || '';
+    // Email: tenta caminhos conhecidos + fallback recursivo (subscription pode vir sem buyer)
+    const email = normEmail(
+      buyer.email ||
+      subscriber.email ||
+      payload?.data?.user?.email ||
+      findKey(payload, 'email') ||
+      ''
+    );
+    const name = buyer.name || subscriber.name || findKey(payload, 'name') || null;
+    const phone = buyer.checkout_phone || buyer.phone ||
+      subscriber.checkout_phone || subscriber.phone ||
+      findKey(payload, 'checkout_phone') || findKey(payload, 'phone') || '';
 
     if (!email) {
-      console.warn('hotmart webhook sem email — payload:', JSON.stringify(payload).slice(0, 300));
-      return NextResponse.json({ ok: false, error: 'sem email no payload' }, { status: 400 });
+      // Sem email no payload — comum em eventos de assinatura de teste.
+      // Retorna 200 pra Hotmart NÃO tentar de novo (evita retentativas eternas).
+      console.warn(`hotmart event=${event} sem email — ignorando (200) pra evitar retentativa`);
+      return NextResponse.json({ ok: true, action: 'ignored-no-email', event });
     }
 
     const kv = await getKV();
