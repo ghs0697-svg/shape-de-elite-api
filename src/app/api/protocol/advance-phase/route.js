@@ -73,7 +73,10 @@ export async function POST(req) {
         return jsonRes(req, { ok: false, error: 'newDays inválido (3, 4, 5 ou 6)' }, { status: 400 });
       }
       const sex = p.sex === 'Mulher' ? ' FEM' : '';
-      const newWorkout = `TREINO${sex} ${days}X ${targetPhase}`;
+      // Preserva a prioridade no nome ao avançar de fase (ex: "TREINO PEITO 5X 2.0")
+      const newWorkout = p.priority
+        ? `TREINO ${String(p.priorityLabel || p.priority).toUpperCase()} ${days}X ${targetPhase}`
+        : `TREINO${sex} ${days}X ${targetPhase}`;
       updated = { ...updated, treinoPhase: targetPhase, days, workout: newWorkout };
     } else {
       const phaseStep = targetPhase === '2.0' ? 1 : 2;

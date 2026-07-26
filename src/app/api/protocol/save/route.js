@@ -52,6 +52,16 @@ export async function POST(req) {
     // (a pergunta serve pra dar a percepção de personalização, mas treino é igual pra todo mundo)
     const level = ['iniciante', 'intermediario', 'avancado'].includes(incoming.level) ? incoming.level : 'iniciante';
 
+    // Prioridade muscular (roteia pros 108 treinos v2.0). Valida por sexo; inválida/EQUILIBRADO → null
+    // (null = treino equilibrado antigo — mesmo caminho dos alunos de antes da prioridade existir).
+    const PRIO_BY_SEX = {
+      'Homem': ['PEITO', 'COSTAS', 'OMBRO', 'BRACO', 'COXA'],
+      'Mulher': ['GLUTEO', 'POSTERIOR', 'QUADRICEPS', 'SUPERIORES'],
+    };
+    const allowedPrio = PRIO_BY_SEX[incoming.sex] || [];
+    const priority = allowedPrio.includes(incoming.priority) ? incoming.priority : null;
+    const priorityLabel = priority ? String(incoming.priorityLabel || '').slice(0, 40) : null;
+
     // Sanitize: pega só os campos esperados, ignora qualquer manipulação client-side de fase/lock/contadores
     const protocol = {
       email: auth.email,
@@ -67,6 +77,8 @@ export async function POST(req) {
       goalAdjust: incoming.goalAdjust,
       days: incoming.days,
       level,
+      priority,
+      priorityLabel,
       tmb: incoming.tmb,
       maintenance: incoming.maintenance,
       target: incoming.target,
