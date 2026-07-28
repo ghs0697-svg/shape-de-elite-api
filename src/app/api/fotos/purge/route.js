@@ -6,14 +6,14 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 /**
- * Purga automática das fotos de acompanhamento com mais de 12 meses.
+ * Purga automática das fotos de acompanhamento com mais de 13 meses.
  * Roda por cron (ver vercel.json). Varre a pasta-raiz do Peitão, entra em cada aluno,
  * e apaga as pastas de DATA (DD-MM-AAAA) mais velhas que 120 dias.
  *
  * Auth: header do cron da Vercel (x-vercel-cron) OU Authorization: Bearer CRON_SECRET.
  */
 
-const MAX_AGE_DAYS = 365; // 12 meses: fecha o ano de contratação da plataforma
+const MAX_AGE_DAYS = 395; // 13 meses: o ano de contratação + 1 mês de folga (aluno compara a Fase 1.0 até o fim do acesso)
 
 function getDrive() {
   const cid = process.env.GDRIVE_CLIENT_ID;
